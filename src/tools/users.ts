@@ -23,13 +23,13 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'users_get',
-        'Get a specific Remnawave user by their UUID',
+        'Get a specific Remnawave user by their numeric ID',
         {
-            uuid: z.string().describe('User UUID'),
+            id: z.number().describe('User numeric ID'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                const result = await client.getUserByUuid(uuid);
+                const result = await client.getUserById(id);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -71,9 +71,9 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'users_get_by_telegram_id',
-        'Get a Remnawave user by their Telegram ID',
+        'Get a Remnawave user by their Telegram ID (backend 3.x: implemented via filtered list query, not a dedicated endpoint)',
         {
-            telegramId: z.string().describe('Telegram user ID'),
+            telegramId: z.number().describe('Telegram user ID'),
         },
         async ({ telegramId }) => {
             try {
@@ -261,12 +261,12 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_delete',
         'Permanently delete a Remnawave user',
         {
-            uuid: z.string().describe('User UUID to delete'),
+            id: z.number().describe('User numeric ID to delete'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                await client.deleteUser(uuid);
-                return toolResult({ success: true, message: `User ${uuid} deleted` });
+                await client.deleteUser(id);
+                return toolResult({ success: true, message: `User ${id} deleted` });
             } catch (e) {
                 return toolError(e);
             }
@@ -277,11 +277,11 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_enable',
         'Enable a disabled Remnawave user (restore VPN access)',
         {
-            uuid: z.string().describe('User UUID'),
+            id: z.number().describe('User numeric ID'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                const result = await client.enableUser(uuid);
+                const result = await client.enableUser(id);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -293,11 +293,11 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_disable',
         'Disable a Remnawave user (block VPN access)',
         {
-            uuid: z.string().describe('User UUID'),
+            id: z.number().describe('User numeric ID'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                const result = await client.disableUser(uuid);
+                const result = await client.disableUser(id);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -309,11 +309,11 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_revoke_subscription',
         'Revoke subscription for a Remnawave user (generates new subscription link)',
         {
-            uuid: z.string().describe('User UUID'),
+            id: z.number().describe('User numeric ID'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                const result = await client.revokeUserSubscription(uuid);
+                const result = await client.revokeUserSubscription(id);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -325,11 +325,11 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_reset_traffic',
         'Reset traffic counter for a Remnawave user',
         {
-            uuid: z.string().describe('User UUID'),
+            id: z.number().describe('User numeric ID'),
         },
-        async ({ uuid }) => {
+        async ({ id }) => {
             try {
-                const result = await client.resetUserTraffic(uuid);
+                const result = await client.resetUserTraffic(id);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -357,7 +357,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_update',
         'Bulk update selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs to update'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs to update'),
             status: z.enum(['ACTIVE', 'DISABLED', 'LIMITED', 'EXPIRED']).optional().describe('New status'),
             expireAt: z.string().optional().describe('New expiration date (ISO 8601)'),
             trafficLimitBytes: z.number().optional().describe('New traffic limit'),
@@ -371,8 +371,8 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         },
         async (params) => {
             try {
-                const { uuids, ...fields } = params;
-                const result = await client.bulkUpdateUsers({ uuids, fields });
+                const { userIds, ...fields } = params;
+                const result = await client.bulkUpdateUsers({ userIds, fields });
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -384,7 +384,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_reset_traffic',
         'Bulk reset traffic for selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs'),
         },
         async (params) => {
             try {
@@ -400,7 +400,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_revoke_subscription',
         'Bulk revoke subscriptions for selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs'),
         },
         async (params) => {
             try {
@@ -416,7 +416,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_delete',
         'Bulk delete selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs to delete'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs to delete'),
         },
         async (params) => {
             try {
@@ -432,7 +432,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_update_squads',
         'Bulk update squad assignments for selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs'),
             activeInternalSquads: z.array(z.string()).describe('Squad UUIDs to assign'),
         },
         async (params) => {
@@ -449,7 +449,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_bulk_extend_expiration',
         'Bulk extend expiration date for selected users',
         {
-            uuids: z.array(z.string()).describe('Array of user UUIDs'),
+            userIds: z.array(z.number()).describe('Array of user numeric IDs'),
             extendDays: z.number().describe('Number of days to extend'),
         },
         async (params) => {

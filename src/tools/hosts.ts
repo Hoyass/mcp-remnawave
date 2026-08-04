@@ -360,8 +360,17 @@ export function registerHostTools(server: McpServer, client: RemnawaveClient, re
             configProfileUuid: z.string().describe('Config profile UUID'),
             configProfileInboundUuid: z.string().describe('Inbound UUID'),
         },
-        async (params) => {
-            try { return toolResult(await client.bulkSetHostInbound(params)); } catch (e) { return toolError(e); }
+        async ({ uuids, configProfileUuid, configProfileInboundUuid }) => {
+            try {
+                return toolResult(
+                    await client.bulkSetHostInbound({
+                        uuids,
+                        inbound: { configProfileUuid, configProfileInboundUuid },
+                    }),
+                );
+            } catch (e) {
+                return toolError(e);
+            }
         },
     );
 

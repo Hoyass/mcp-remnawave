@@ -82,8 +82,13 @@ export class RemnawaveClient {
         );
     }
 
-    async getUserByUuid(uuid: string) {
-        return this.get(REST_API.USERS.GET_BY_UUID(uuid));
+    // NOTE (backend-contract 3.x migration): USERS.GET_BY_UUID / GET_BY.ID were replaced by a
+    // single top-level GET_BY_ID(userId: number). GET_BY.TELEGRAM_ID / EMAIL / TAG /
+    // SUBSCRIPTION_UUID no longer exist as dedicated routes at all -- reimplemented below via
+    // the generic list endpoint's TanStack `filters` param (backend's own docs call this
+    // "expensive", it's a LIKE-based table scan, not an indexed lookup).
+    async getUserById(id: number) {
+        return this.get(REST_API.USERS.GET_BY_ID(String(id)));
     }
 
     async getUserByUsername(username: string) {
@@ -94,24 +99,31 @@ export class RemnawaveClient {
         return this.get(REST_API.USERS.GET_BY.SHORT_UUID(shortUuid));
     }
 
-    async getUserByTelegramId(telegramId: string) {
-        return this.get(REST_API.USERS.GET_BY.TELEGRAM_ID(telegramId));
+    private async getUsersByFilter(filterId: string, value: unknown) {
+        const filters = encodeURIComponent(JSON.stringify([{ id: filterId, value }]));
+        return this.get(`${REST_API.USERS.GET}?start=0&size=25&filters=${filters}`);
+    }
+
+    async getUserByTelegramId(telegramId: number) {
+        return this.getUsersByFilter('telegramId', telegramId);
     }
 
     async getUserByEmail(email: string) {
-        return this.get(REST_API.USERS.GET_BY.EMAIL(email));
+        return this.getUsersByFilter('email', email);
     }
 
     async getUserByTag(tag: string) {
-        return this.get(REST_API.USERS.GET_BY.TAG(tag));
+        return this.getUsersByFilter('tag', tag);
     }
 
-    async getUserById(id: string) {
-        return this.get(REST_API.USERS.GET_BY.ID(id));
-    }
-
+    // "subscriptionUuid" doesn't exist as a users.schema.js field in 3.x. Old route (2.x)
+    // was a separate path from short-uuid (`by-subscription-uuid` vs `by-short-uuid`,
+    // distinct error code USER_SUBSCRIPTION_UUID_ALREADY_EXISTS), and 3.x's users schema
+    // has `vlessUuid` where 2.x had this concept -- mapped here, but NOT verified against a
+    // live 3.x backend (panel is still on 2.7.4 as of this migration). Verify before relying
+    // on this in production.
     async getUserBySubscriptionUuid(subscriptionUuid: string) {
-        return this.get(REST_API.USERS.GET_BY.SUBSCRIPTION_UUID(subscriptionUuid));
+        return this.getUsersByFilter('vlessUuid', subscriptionUuid);
     }
 
     async getUserTags() {
@@ -130,24 +142,24 @@ export class RemnawaveClient {
         return this.patch(REST_API.USERS.UPDATE, params);
     }
 
-    async deleteUser(uuid: string) {
-        return this.delete(REST_API.USERS.DELETE(uuid));
+    async deleteUser(id: number) {
+        return this.delete(REST_API.USERS.DELETE(String(id)));
     }
 
-    async enableUser(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.ENABLE(uuid));
+    async enableUser(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.ENABLE(String(id)));
     }
 
-    async disableUser(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.DISABLE(uuid));
+    async disableUser(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.DISABLE(String(id)));
     }
 
-    async revokeUserSubscription(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.REVOKE_SUBSCRIPTION(uuid));
+    async revokeUserSubscription(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.REVOKE_SUBSCRIPTION(String(id)));
     }
 
-    async resetUserTraffic(uuid: string) {
-        return this.post(REST_API.USERS.ACTIONS.RESET_TRAFFIC(uuid));
+    async resetUserTraffic(id: number) {
+        return this.post(REST_API.USERS.ACTIONS.RESET_TRAFFIC(String(id)));
     }
 
     async bulkDeleteUsersByStatus(params: Record<string, unknown>) {
@@ -290,12 +302,15 @@ export class RemnawaveClient {
         return this.post(REST_API.HOSTS.BULK.DELETE_HOSTS, params);
     }
 
+    // NOTE (backend-contract 3.x): dedicated BULK.SET_INBOUND / BULK.SET_PORT routes are gone --
+    // folded into the generic BULK.UPDATE (same PATCH used for any host field, uuids + partial
+    // fields), matching how bulk user updates were already restructured upstream.
     async bulkSetHostInbound(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_INBOUND, params);
+        return this.patch(REST_API.HOSTS.BULK.UPDATE, params);
     }
 
     async bulkSetHostPort(params: Record<string, unknown>) {
-        return this.post(REST_API.HOSTS.BULK.SET_PORT, params);
+        return this.patch(REST_API.HOSTS.BULK.UPDATE, params);
     }
 
     // System
@@ -344,8 +359,8 @@ export class RemnawaveClient {
         );
     }
 
-    async getSubscriptionByUuid(uuid: string) {
-        return this.get(REST_API.SUBSCRIPTIONS.GET_BY.UUID(uuid));
+    async getSubscriptionById(id: number) {
+        return this.get(REST_API.SUBSCRIPTIONS.GET_BY.ID(String(id)));
     }
 
     async getSubscriptionByUsername(username: string) {
@@ -364,8 +379,8 @@ export class RemnawaveClient {
         return this.get(REST_API.SUBSCRIPTIONS.SUBPAGE.GET_CONFIG(shortUuid));
     }
 
-    async getConnectionKeysByUuid(uuid: string) {
-        return this.get(REST_API.SUBSCRIPTIONS.GET_CONNECTION_KEYS_BY_UUID(uuid));
+    async getConnectionKeysByUserId(userId: number) {
+        return this.get(REST_API.SUBSCRIPTIONS.GET_CONNECTION_KEYS_BY_USER_ID(String(userId)));
     }
 
     async getSubscriptionInfo(shortUuid: string) {
@@ -499,8 +514,8 @@ export class RemnawaveClient {
         return this.get(REST_API.BANDWIDTH_STATS.NODES.GET_REALTIME);
     }
 
-    async getUserBandwidthByUuid(uuid: string) {
-        return this.get(REST_API.BANDWIDTH_STATS.USERS.GET_BY_UUID(uuid));
+    async getUserBandwidthById(id: number) {
+        return this.get(REST_API.BANDWIDTH_STATS.USERS.GET_BY_ID(String(id)));
     }
 
     // Auth
@@ -723,26 +738,28 @@ export class RemnawaveClient {
         return this.post(REST_API.NODE_PLUGINS.TORRENT_BLOCKER.TRUNCATE_REPORTS);
     }
 
-    // IP Control
+    // Connections (renamed from IP_CONTROL in backend-contract 3.x -- same async job pattern,
+    // fetchIps(userUuid) -> fetchConnectionsByUser(userId: number), fetchUsersIps(nodeUuid)
+    // stays uuid-keyed as fetchConnectionsByNode(nodeUuid))
 
-    async fetchIps(uuid: string) {
-        return this.post(REST_API.IP_CONTROL.FETCH_IPS(uuid));
+    async fetchConnectionsByUser(userId: number) {
+        return this.post(REST_API.CONNECTIONS.CONNECTIONS_BY_USER(String(userId)));
     }
 
-    async getFetchIpsResult(jobId: string) {
-        return this.get(REST_API.IP_CONTROL.GET_FETCH_IPS_RESULT(jobId));
+    async getConnectionsByUserResult(jobId: string) {
+        return this.get(REST_API.CONNECTIONS.CONNECTIONS_BY_USER_RESULT(jobId));
     }
 
     async dropConnections(params: Record<string, unknown>) {
-        return this.post(REST_API.IP_CONTROL.DROP_CONNECTIONS, params);
+        return this.post(REST_API.CONNECTIONS.DROP_CONNECTIONS, params);
     }
 
-    async fetchUsersIps(nodeUuid: string) {
-        return this.post(REST_API.IP_CONTROL.FETCH_USERS_IPS(nodeUuid));
+    async fetchConnectionsByNode(nodeUuid: string) {
+        return this.post(REST_API.CONNECTIONS.CONNECTIONS_BY_NODE(nodeUuid));
     }
 
-    async getFetchUsersIpsResult(jobId: string) {
-        return this.get(REST_API.IP_CONTROL.GET_FETCH_USERS_IPS_RESULT(jobId));
+    async getConnectionsByNodeResult(jobId: string) {
+        return this.get(REST_API.CONNECTIONS.CONNECTIONS_BY_NODE_RESULT(jobId));
     }
 
     // Metadata
