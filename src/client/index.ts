@@ -70,8 +70,8 @@ export class RemnawaveClient {
         return this.request<T>('PUT', path, body);
     }
 
-    private async delete<T = unknown>(path: string): Promise<T> {
-        return this.request<T>('DELETE', path);
+    private async delete<T = unknown>(path: string, body?: unknown): Promise<T> {
+        return this.request<T>('DELETE', path, body);
     }
 
     // Users
@@ -466,16 +466,20 @@ export class RemnawaveClient {
         return this.delete(REST_API.INTERNAL_SQUADS.DELETE(uuid));
     }
 
+    // NOTE: ADD_USERS/REMOVE_USERS (no ID suffix) are the bulk-ALL variant (no body) -- same
+    // "all users" semantics as external squads. Selecting specific users requires the distinct
+    // ADD_MANY_USERS/REMOVE_MANY_USERS routes with a {userIds} body. First pass wired the
+    // renamed {userIds} body onto the wrong (bulk-all) endpoint -- caught by second review pass.
     async addUsersToSquad(squadUuid: string, userIds: number[]) {
         return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
+            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_MANY_USERS(squadUuid),
             { userIds },
         );
     }
 
     async removeUsersFromSquad(squadUuid: string, userIds: number[]) {
-        return this.post(
-            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
+        return this.delete(
+            REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_MANY_USERS(squadUuid),
             { userIds },
         );
     }
@@ -619,8 +623,10 @@ export class RemnawaveClient {
         return this.patch(REST_API.SNIPPETS.UPDATE, params);
     }
 
+    // Pre-existing bug, unrelated to the 3.x migration (present since before b458076): the
+    // contract defines this as DELETE with a {name} body, not POST. Fixed incidentally here.
     async deleteSnippet(params: Record<string, unknown>) {
-        return this.post(REST_API.SNIPPETS.DELETE, params);
+        return this.delete(REST_API.SNIPPETS.DELETE, params);
     }
 
     // External Squads
