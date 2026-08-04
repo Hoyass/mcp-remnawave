@@ -104,12 +104,23 @@ export class RemnawaveClient {
         return this.get(`${REST_API.USERS.GET}?start=0&size=25&filters=${filters}`);
     }
 
+    // Unwraps the filtered list down to a single user for lookups that are conceptually
+    // "get THE user by unique field" (unlike getUserByTag, which is legitimately one-to-many
+    // and returns the raw list).
+    private async getSingleUserByFilter(filterId: string, value: unknown) {
+        const result = (await this.getUsersByFilter(filterId, value)) as {
+            response?: { users?: unknown[]; total?: number };
+        };
+        const users = result?.response?.users ?? [];
+        return users[0] ?? null;
+    }
+
     async getUserByTelegramId(telegramId: number) {
-        return this.getUsersByFilter('telegramId', telegramId);
+        return this.getSingleUserByFilter('telegramId', telegramId);
     }
 
     async getUserByEmail(email: string) {
-        return this.getUsersByFilter('email', email);
+        return this.getSingleUserByFilter('email', email);
     }
 
     async getUserByTag(tag: string) {
@@ -123,7 +134,7 @@ export class RemnawaveClient {
     // live 3.x backend (panel is still on 2.7.4 as of this migration). Verify before relying
     // on this in production.
     async getUserBySubscriptionUuid(subscriptionUuid: string) {
-        return this.getUsersByFilter('vlessUuid', subscriptionUuid);
+        return this.getSingleUserByFilter('vlessUuid', subscriptionUuid);
     }
 
     async getUserTags() {
@@ -455,24 +466,24 @@ export class RemnawaveClient {
         return this.delete(REST_API.INTERNAL_SQUADS.DELETE(uuid));
     }
 
-    async addUsersToSquad(squadUuid: string, userUuids: string[]) {
+    async addUsersToSquad(squadUuid: string, userIds: number[]) {
         return this.post(
             REST_API.INTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
+            { userIds },
         );
     }
 
-    async removeUsersFromSquad(squadUuid: string, userUuids: string[]) {
+    async removeUsersFromSquad(squadUuid: string, userIds: number[]) {
         return this.post(
             REST_API.INTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
+            { userIds },
         );
     }
 
     // HWID
 
-    async getUserHwidDevices(userUuid: string) {
-        return this.get(REST_API.HWID.GET_USER_HWID_DEVICES(userUuid));
+    async getUserHwidDevices(userId: number) {
+        return this.get(REST_API.HWID.GET_USER_HWID_DEVICES(String(userId)));
     }
 
     async getAllHwidDevices() {
@@ -491,16 +502,16 @@ export class RemnawaveClient {
         return this.post(REST_API.HWID.CREATE_USER_HWID_DEVICE, params);
     }
 
-    async deleteHwidDevice(userUuid: string, hwid: string) {
+    async deleteHwidDevice(userId: number, hwid: string) {
         return this.post(REST_API.HWID.DELETE_USER_HWID_DEVICE, {
-            userUuid,
+            userId,
             hwid,
         });
     }
 
-    async deleteAllUserHwidDevices(userUuid: string) {
+    async deleteAllUserHwidDevices(userId: number) {
         return this.post(REST_API.HWID.DELETE_ALL_USER_HWID_DEVICES, {
-            userUuid,
+            userId,
         });
     }
 
@@ -634,18 +645,16 @@ export class RemnawaveClient {
         return this.delete(REST_API.EXTERNAL_SQUADS.DELETE(uuid));
     }
 
-    async addUsersToExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid),
-            { userUuids },
-        );
+    // NOTE (backend-contract 3.x): these are no longer "add/remove a selected list of users" --
+    // in 3.x, RequestParamSchema is just {uuid: squad uuid}, no body at all. Endpoint semantics
+    // are now "apply to ALL users" (per-user membership in an external squad is instead set via
+    // the `externalSquadUuid` field on the user object itself, updateUser/createUser).
+    async addAllUsersToExternalSquad(squadUuid: string) {
+        return this.post(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.ADD_USERS(squadUuid));
     }
 
-    async removeUsersFromExternalSquad(squadUuid: string, userUuids: string[]) {
-        return this.post(
-            REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid),
-            { userUuids },
-        );
+    async removeAllUsersFromExternalSquad(squadUuid: string) {
+        return this.delete(REST_API.EXTERNAL_SQUADS.BULK_ACTIONS.REMOVE_USERS(squadUuid));
     }
 
     async reorderExternalSquads(params: Record<string, unknown>) {
@@ -772,11 +781,11 @@ export class RemnawaveClient {
         return this.put(REST_API.METADATA.NODE.UPSERT(uuid), params);
     }
 
-    async getUserMetadata(uuid: string) {
-        return this.get(REST_API.METADATA.USER.GET(uuid));
+    async getUserMetadata(userId: number) {
+        return this.get(REST_API.METADATA.USER.GET(String(userId)));
     }
 
-    async upsertUserMetadata(uuid: string, params: Record<string, unknown>) {
-        return this.put(REST_API.METADATA.USER.UPSERT(uuid), params);
+    async upsertUserMetadata(userId: number, params: Record<string, unknown>) {
+        return this.put(REST_API.METADATA.USER.UPSERT(String(userId)), params);
     }
 }

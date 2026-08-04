@@ -149,9 +149,8 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
 
     server.tool(
         'users_resolve',
-        'Search and resolve users by UUID, ID, short UUID, or username',
+        'Search and resolve a user by numeric ID, short UUID, or username (exactly one)',
         {
-            uuid: z.string().optional().describe('User UUID'),
             id: z.number().optional().describe('User numeric ID'),
             shortUuid: z.string().optional().describe('Short UUID'),
             username: z.string().optional().describe('Username'),
@@ -198,7 +197,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
                 .array(z.string())
                 .optional()
                 .describe('Array of internal squad UUIDs'),
-            uuid: z.string().optional().describe('Custom UUID for the user'),
+            vlessUuid: z.string().optional().describe('Custom VLESS protocol UUID for the user'),
             externalSquadUuid: z.string().optional().describe('External squad UUID'),
         },
         async (params) => {
@@ -215,7 +214,7 @@ export function registerUserTools(server: McpServer, client: RemnawaveClient, re
         'users_update',
         'Update an existing Remnawave user',
         {
-            uuid: z.string().describe('User UUID to update'),
+            id: z.number().describe('User numeric ID to update'),
             username: z.string().optional().describe('New username'),
             expireAt: z
                 .string()
