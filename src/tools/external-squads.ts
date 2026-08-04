@@ -35,22 +35,23 @@ export function registerExternalSquadTools(server: McpServer, client: RemnawaveC
         try { await client.deleteExternalSquad(uuid); return toolResult({ success: true, message: `Squad ${uuid} deleted` }); } catch (e) { return toolError(e); }
     });
 
-    server.tool('external_squads_add_users', 'Add users to an external squad', {
+    server.tool('external_squads_add_users', 'Add ALL users to an external squad (backend 3.x: bulk-all operation, no per-user selection -- assign a single user via users_update externalSquadUuid instead)', {
         squadUuid: z.string().describe('Squad UUID'),
-        userUuids: z.array(z.string()).describe('Array of user UUIDs to add'),
-    }, async ({ squadUuid, userUuids }) => {
-        try { return toolResult(await client.addUsersToExternalSquad(squadUuid, userUuids)); } catch (e) { return toolError(e); }
+    }, async ({ squadUuid }) => {
+        try { return toolResult(await client.addAllUsersToExternalSquad(squadUuid)); } catch (e) { return toolError(e); }
     });
 
-    server.tool('external_squads_remove_users', 'Remove users from an external squad', {
+    server.tool('external_squads_remove_users', 'Remove ALL users from an external squad (backend 3.x: bulk-all operation, no per-user selection)', {
         squadUuid: z.string().describe('Squad UUID'),
-        userUuids: z.array(z.string()).describe('Array of user UUIDs to remove'),
-    }, async ({ squadUuid, userUuids }) => {
-        try { return toolResult(await client.removeUsersFromExternalSquad(squadUuid, userUuids)); } catch (e) { return toolError(e); }
+    }, async ({ squadUuid }) => {
+        try { return toolResult(await client.removeAllUsersFromExternalSquad(squadUuid)); } catch (e) { return toolError(e); }
     });
 
     server.tool('external_squads_reorder', 'Reorder external squads', {
-        uuids: z.array(z.string()).describe('Ordered array of squad UUIDs'),
+        items: z.array(z.object({
+            viewPosition: z.number().describe('Sort position (0-based)'),
+            uuid: z.string().describe('Squad UUID'),
+        })).describe('Ordered array of { viewPosition, uuid } objects'),
     }, async (params) => {
         try { return toolResult(await client.reorderExternalSquads(params)); } catch (e) { return toolError(e); }
     });
