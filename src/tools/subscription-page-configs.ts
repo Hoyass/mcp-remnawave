@@ -25,6 +25,7 @@ export function registerSubPageConfigTools(server: McpServer, client: RemnawaveC
     server.tool('sub_page_configs_update', 'Update a subscription page configuration', {
         uuid: z.string().describe('Config UUID'),
         name: z.string().optional().describe('New name'),
+        config: z.record(z.unknown()).optional().describe('Full config object'),
     }, async (params) => {
         try { return toolResult(await client.updateSubscriptionPageConfig(params)); } catch (e) { return toolError(e); }
     });
