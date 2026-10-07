@@ -218,10 +218,11 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
         'Restart a specific node',
         {
             uuid: z.string().describe('Node UUID'),
+            forceRestart: z.boolean().optional().describe('Force restart even if the node is already running (default false)'),
         },
-        async ({ uuid }) => {
+        async ({ uuid, forceRestart }) => {
             try {
-                const result = await client.restartNode(uuid);
+                const result = await client.restartNode(uuid, forceRestart ?? false);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
@@ -232,10 +233,12 @@ export function registerNodeTools(server: McpServer, client: RemnawaveClient, re
     server.tool(
         'nodes_restart_all',
         'Restart all nodes',
-        {},
-        async () => {
+        {
+            forceRestart: z.boolean().optional().describe('Force restart (default false)'),
+        },
+        async ({ forceRestart }) => {
             try {
-                const result = await client.restartAllNodes();
+                const result = await client.restartAllNodes(forceRestart ?? false);
                 return toolResult(result);
             } catch (e) {
                 return toolError(e);
